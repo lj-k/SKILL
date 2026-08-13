@@ -1,0 +1,19 @@
+<!-- ============ 图片查看模态窗口 ============ -->
+<div class="img-modal" id="imgModal">
+  <div class="img-modal-content" onclick="if(event.target===this||event.target.classList.contains('img-modal-body'))closeImageModal()">
+    <div class="img-modal-toolbar">
+      <button class="img-nav-btn" id="navPrev" onclick="navImage(-1)" title="上一张">‹</button>
+      <span class="img-modal-title" id="modalTitle">图片预览</span>
+      <button class="img-nav-btn" id="navNext" onclick="navImage(1)" title="下一张">›</button>
+      <span class="toolbar-separator"></span>
+      <button onclick="zoomImage(0.2)" title="放大">+</button>
+      <button onclick="zoomImage(-0.2)" title="缩小">−</button>
+      <button onclick="resetZoom()" title="重置缩放">重置</button>
+      <span class="toolbar-separator"></span>
+      <button class="img-modal-close" onclick="closeImageModal()" title="关闭 (Esc)">✕</button>
+    </div>
+    <div class="img-modal-body">
+      <div class="img-stage" id="imgStage" style="transform: translate(0px, 0px) scale(1);"></div>
+    </div>
+  </div>
+</div>

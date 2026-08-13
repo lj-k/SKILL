@@ -1,0 +1,150 @@
+/* ============ 模态图片查看器 CSS ============ */
+/* 接管名下划线 __ 变量来自宿主文档的 CSS 变量（--rule/--ink/--accent/--bg/--red），
+   若宿主未定义，请替换为具体色值。 */
+
+/* 3.1 遮罩层 — 必须有深色背景 */
+.img-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);  /* 必须：半透明深色，遮挡底层文档 */
+}
+.img-modal.open { display: block; }
+
+/* 3.2 内容容器 */
+.img-modal-content {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* 3.3 图片区域 — inline-flex shrink-wrap + margin:auto 居中 */
+.img-modal-body {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow: auto;  /* 必须 auto：缩放后可滚动查看完整内容 */
+}
+.img-stage {
+  margin: auto;              /* 必须 margin:auto：flex 居中且支持溢出滚动 */
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 4px;
+  cursor: grab;
+  transform-origin: center center;
+  transition: transform 0.15s ease;
+  display: inline-flex;      /* 必须：shrink-wrap 包裹内容 */
+  align-items: center;
+  justify-content: center;
+  /* 禁止设 width: 100% / height: 100% */
+}
+.img-stage.dragging { cursor: grabbing; }
+.img-stage svg, .img-stage img {
+  max-width: 90vw;
+  max-height: 85vh;
+  display: block;
+}
+
+/* 3.4 统一顶部工具栏 */
+.img-modal-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.9);
+  padding: 6px 10px;
+  border-radius: 24px;
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--rule);
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  max-width: 92vw;
+}
+.img-modal-toolbar .img-modal-title {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 420px;
+  padding: 0 6px;
+}
+.img-modal-toolbar button {
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  min-width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.img-modal-toolbar button:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.img-modal-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.img-modal-toolbar .img-modal-close {
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 15px;
+}
+.img-modal-toolbar .img-modal-close:hover {
+  background: var(--red); color: #fff; border-color: var(--red);
+}
+.img-modal-toolbar .img-nav-btn {
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 18px;
+}
+.img-modal-toolbar .toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--rule);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* 3.5 图表 figure CSS — 分离规则 */
+/* ECharts 图表：border-radius 配对 overflow:hidden */
+figure.chart-figure {
+  margin: 20px 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;       /* 必须：配对 border-radius 裁剪子元素 */
+  background: var(--bg);
+}
+/* Mermaid 图表：不可 overflow:hidden（需保留滚动容器） */
+figure.diagram {
+  margin: 20px 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--bg);
+  /* 禁止 overflow:hidden：会裁剪 Mermaid SVG 交互 */
+}
+.chart-canvas { width: 100%; height: 340px; padding: 12px; }
+.mermaid-wrap { padding: 20px; overflow: auto; background: var(--bg); }
+/* Mermaid SVG 不需要交互，禁用 pointer-events */
+.mermaid-wrap svg { pointer-events: none; }
