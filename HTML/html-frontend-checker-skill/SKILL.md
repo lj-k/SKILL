@@ -41,7 +41,7 @@ python3 html_frontend_checker.py --file path/to/file.html --output report.html
 | Category | Checks | Key Areas |
 |----------|--------|-----------|
 | structure | 18 | Tag pairing (div/html/body/script/style/code/pre/figure/details/article/section), heading hierarchy, DOM element position, stray tags |
-| css | 14 | Modal transparency, no size constraints, sidebar nowrap, overflow-x hidden, margin-left, white background, table-layout fixed |
+| css | 15 | Modal transparency, no size constraints, sidebar nowrap, overflow-x hidden, margin-left, white background, table-layout fixed, responsive cascade order |
 | js | 16 | Function completeness (scroll-spy/collapse/diagram/sidebar/tooltip/back-to-top), DOMContentLoaded, async mermaid, duplicate detection, null-reference prevention |
 | navigation | 10 | Sidebar presence, ToC presence, link integrity, scroll-spy attributes, sidebar-heading count match, scroll-spy recalc after fold |
 | diagram | 12 | Viewer buttons (zoom/drag/pan/reset/ESC/prev-next), no duplicate buttons, figure.diagram wrapping, figcaption presence, SVG container |

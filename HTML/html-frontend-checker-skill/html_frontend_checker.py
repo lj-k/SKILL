@@ -42,13 +42,57 @@ def count_tag(content, tag):
     close_count = len(re.findall(r'</' + tag + r'>', content))
     return open_count, close_count
 
+def strip_script_style(content):
+    """Remove <script>...</script> and <style>...</style> blocks so anchor/id
+    scans do not match JS comments or CSS selectors (common false-positive source)."""
+    text = re.sub(r'<script\b[^>]*>.*?</script>', ' ', content, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r'<style\b[^>]*>.*?</style>', ' ', text, flags=re.DOTALL | re.IGNORECASE)
+    return text
+
 def extract_id_matches(content):
-    """Extract all id attributes from HTML content."""
-    return re.findall(r'id="([^"]+)"', content)
+    """Extract all id attributes from HTML content (ignores <script>/<style>)."""
+    return re.findall(r'id="([^"]+)"', strip_script_style(content))
 
 def extract_href_anchors(content):
-    """Extract all href="#xxx" anchors from HTML content."""
-    return re.findall(r'href="#([^"]+)"', content)
+    """Extract all href="#xxx" anchors from HTML content (ignores <script>/<style>)."""
+    return re.findall(r'href="#([^"]+)"', strip_script_style(content))
+
+# ---------------------------------------------------------------------------
+# Generic scroll-spy detection (replaces brittle initScrollSpy name check)
+# ---------------------------------------------------------------------------
+SCROLLSPY_NAMES = ['initScrollSpy', 'scrollSpy', 'scrollspy', 'spy', 'updateSpy',
+                   'activateNav', 'setActiveNav', 'initNavSpy', 'onScroll', 'navSpy']
+
+def detect_scrollspy(content):
+    """Heuristically detect whether a scroll-spy (active-nav highlighting) mechanism
+    exists. Catches ANY naming convention, not just initScrollSpy."""
+    has_def = any(re.search(
+        r'(?:function\s+' + re.escape(n) + r'\b|' + re.escape(n) + r'\s*=\s*function|'
+        r'const\s+' + re.escape(n) + r'\b|let\s+' + re.escape(n) + r'\b|var\s+' + re.escape(n) + r'\b)',
+        content) for n in SCROLLSPY_NAMES)
+    has_call = any((n + '()' in content) or (n + '();' in content) for n in SCROLLSPY_NAMES)
+    has_scroll_listener = bool(re.search(r'addEventListener\s*\(\s*["\']scroll["\']', content))
+    has_active_toggle = bool(re.search(
+        r'classList\.(?:add|remove|toggle)\s*\(\s*[^)]*active', content, re.I)) or \
+        bool(re.search(r'\.(?:active|nav-active|current)\b', content))
+    has_rect = 'getBoundingClientRect' in content
+    mechanism = has_def or (has_scroll_listener and has_active_toggle) or (has_scroll_listener and has_rect)
+    return {"has_def": has_def, "has_call": has_call,
+            "has_scroll_listener": has_scroll_listener,
+            "has_active_toggle": has_active_toggle, "has_rect": has_rect,
+            "mechanism": mechanism}
+
+def _norm_nav_text(s):
+    """Normalize nav/heading text for lenient comparison: drop whitespace, fold
+    arrows/bullets, strip parentheticals and leading numbering."""
+    if not s:
+        return ""
+    s = re.sub(r'\s+', '', s)
+    for ch in '▾▸▶▼▲◂◀→←•·':
+        s = s.replace(ch, '')
+    s = re.sub(r'\([^)]*\)', '', s)
+    s = re.sub(r'^[\d.．、]+', '', s)
+    return s.lower()
 
 def find_script_position(content):
     """Find the position of the first <script> tag that contains inline JS (not external src)."""
@@ -331,6 +375,84 @@ def check_responsive_design(content, lines, file_path):
         return {"status": "pass", "detail": "存在@media媒体查询"}
     return {"status": "warning", "detail": "缺少响应式设计"}
 
+# ---------------------------------------------------------------------------
+# Responsive cascade-order helpers (catch base-after-media override bug)
+# ---------------------------------------------------------------------------
+LAYOUT_PROPS = ['margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom',
+                'padding', 'padding-left', 'padding-right', 'padding-top', 'padding-bottom',
+                'width', 'max-width', 'min-width', 'height', 'max-height', 'min-height',
+                'display', 'position', 'float', 'flex', 'flex-direction', 'grid',
+                'top', 'left', 'right', 'bottom', 'overflow', 'overflow-x', 'overflow-y']
+
+def _extract_css(content):
+    """Concatenate CSS from all <style> blocks (offsets are within the result)."""
+    parts = re.findall(r'<style\b[^>]*>(.*?)</style>', content, re.DOTALL | re.IGNORECASE)
+    return "\n".join(parts)
+
+def _extract_media_blocks(css):
+    """Return list of (start_offset, end_offset) for each top-level @media block."""
+    blocks = []
+    idx = 0
+    while True:
+        m = re.search(r'@media[^{]*\{', css[idx:])
+        if not m:
+            break
+        brace = idx + m.end() - 1          # position of the opening '{'
+        depth = 0
+        i = brace
+        while i < len(css):
+            if css[i] == '{':
+                depth += 1
+            elif css[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        blocks.append((brace, i + 1))
+        idx = i + 1
+    return blocks
+
+@register("CSS检查", "响应式级联顺序(base须在@media之前)", ["css", "responsive"])
+def check_responsive_cascade_order(content, lines, file_path):
+    """Catch the bug class where a base (desktop) rule is defined AFTER an @media
+    override, so at narrow widths the equal-specificity base wins and the media
+    query never takes effect (e.g. sidebar folds to bottom but leaves left
+    whitespace, body content does not fill width).
+    Best practice: base (desktop) styles FIRST, responsive overrides LAST.
+    Triggered by the real v0.09 regression in the ADS1263 driver report.
+    Flagged as WARNING (not fail) since order only matters when values differ."""
+    css = _extract_css(content)
+    if not css or '@media' not in css:
+        return {"status": "pass", "detail": "无@media或<style>（不适用）"}
+    media_blocks = _extract_media_blocks(css)
+    if not media_blocks:
+        return {"status": "pass", "detail": "无@media块"}
+    # Collect every leaf rule block: (selector, prop, value, offset, in_media).
+    # The regex matches only leaf blocks (body has no nested braces), so a
+    # declaration's selector is unambiguous.
+    decls = []
+    for blk in re.finditer(r'([^{}]+)\{([^{}]*)\}', css):
+        selector = blk.group(1).strip()
+        body = blk.group(2)
+        off = blk.start()
+        in_media = any(off >= s and off < e for (s, e) in media_blocks)
+        for dp in re.finditer(r'\b(' + '|'.join(LAYOUT_PROPS) + r')\s*:\s*([^;{}]+);?', body):
+            decls.append((selector, dp.group(1), dp.group(2).strip(), off, in_media))
+    issues = []
+    for (m_sel, m_prop, m_val, m_off, m_in) in decls:
+        if not m_in:
+            continue                       # only media-block overrides are the "later" rule
+        for (b_sel, b_prop, b_val, b_off, b_in) in decls:
+            if b_in or b_sel != m_sel or b_prop != m_prop:
+                continue                   # MUST be same selector + same property
+            if b_val != m_val and b_off > m_off:
+                issues.append(f"选择器 {m_sel}: 属性 {m_prop} 基础值'{b_val}'定义在@media之后"
+                              f"(行序靠后)，窄屏下会覆盖媒体查询值'{m_val}'")
+                break
+    if issues:
+        return {"status": "warning", "detail": "；".join(issues[:3])}
+    return {"status": "pass", "detail": "响应式级联顺序正确(base先于@media)"}
+
 @register("CSS检查", "CSS变量定义", ["css"])
 def check_css_variables(content, lines, file_path):
     if ':root' in content or '--' in content.split('<style>')[1] if '<style>' in content else '':
@@ -372,39 +494,27 @@ def check_code_block_style(content, lines, file_path):
 
 @register("JS检查", "scroll-spy函数完整性", ["js", "nav"])
 def check_scrollspy_completeness(content, lines, file_path):
-    """Comprehensive scroll-spy check: definition + invocation + data-spy + script count.
-    Bug prevention: C910 v0.06 (offsetTop inaccurate), v0.12 (JS missing), v0.21 (JS stripped)."""
+    """Generic scroll-spy completeness check (any naming convention).
+    Bug prevention: C910 v0.06 (offsetTop inaccurate), v0.12 (JS missing), v0.21 (JS stripped).
+    Downgraded to warnings (not fails) so non-initScrollSpy implementations are not false-flagged."""
     if 'sidebar' not in content.lower() and 'data-spy' not in content:
         return {"status": "pass", "detail": "无侧边栏（不适用）"}
+    spy = detect_scrollspy(content)
+    if not spy['mechanism']:
+        return {"status": "warning", "detail": "未检测到 scroll-spy 机制（无 def / scroll监听+高亮 / rect定位）"}
     issues = []
-    # 1) Function definition
-    has_def = bool(re.search(r'function\s+initScrollSpy|initScrollSpy\s*=\s*function|const\s+initScrollSpy', content))
-    has_call = 'initScrollSpy()' in content or 'initScrollSpy();' in content
-    if not has_def:
-        issues.append("缺少定义function initScrollSpy")
-    if not has_call:
-        issues.append("缺少调用initScrollSpy()")
-    # 2) getBoundingClientRect usage (v0.06 fix)
-    if has_def and 'getBoundingClientRect' not in content:
-        issues.append("未使用getBoundingClientRect（v0.06修复：offsetTop不准确）")
-    # 3) requestAnimationFrame (performance)
-    if has_def and 'requestAnimationFrame' not in content:
-        issues.append("未使用requestAnimationFrame节流")
-    # 4) data-spy anchors
-    spy_links = len(re.findall(r'<a[^>]+data-spy', content))
-    spy_targets = len(re.findall(r'data-spy[^>]*id=', content)) + len(re.findall(r'id="[^"]+"[^>]*data-spy', content))
-    if spy_links == 0 and has_def:
-        issues.append("缺少侧边目录data-spy锚点")
-    if spy_targets == 0 and has_def:
-        issues.append("缺少正文data-spy目标")
-    # 5) Script count
-    scripts = len(re.findall(r'<script\b', content))
-    if scripts < 2 and has_def:
-        issues.append(f"script标签仅{scripts}个（预期>=2：外部库+内联JS）")
-
+    if spy['has_scroll_listener'] and not spy['has_rect']:
+        issues.append("scroll 监听但未用 getBoundingClientRect（v0.06 修复：offsetTop 不准）")
+    if spy['has_scroll_listener'] and 'requestAnimationFrame' not in content:
+        issues.append("未用 requestAnimationFrame 节流")
+    if spy['mechanism'] and not spy['has_def']:
+        issues.append("scroll-spy 以非标准函数名实现，请人工确认")
+    spy_links = len(re.findall(r'<a[^>]+data-spy', content)) if 'data-spy' in content else 0
+    if spy_links == 0 and spy['has_def']:
+        issues.append("有 def 但缺 data-spy 锚点（可选）")
     if issues:
-        return {"status": "fail", "detail": "；".join(issues)}
-    return {"status": "pass", "detail": f"定义+调用齐全, data-spy {spy_links}锚点/{spy_targets}目标, script {scripts}个"}
+        return {"status": "warning", "detail": "；".join(issues)}
+    return {"status": "pass", "detail": "scroll-spy 机制完善（generic 检测）"}
 
 @register("JS检查", "折叠JS函数", ["js"])
 def check_collapse_js(content, lines, file_path):
@@ -493,11 +603,12 @@ def check_duplicate_buttons(content, lines, file_path):
 @register("JS检查", "scroll-spy重计算(折叠后)", ["js", "nav"])
 def check_scrollspy_recalc(content, lines, file_path):
     """Bug GEM5 v0.04: After folding sections, heading positions change but scroll-spy uses stale offsets."""
-    if 'initScrollSpy' not in content and 'scrollSpy' not in content:
+    spy = detect_scrollspy(content)
+    if not spy['mechanism']:
         return {"status": "pass", "detail": "无scroll-spy（不适用）"}
     if 'recalc' in content or 'recalculate' in content or 'calcOffsets' in content or 'updateOffsets' in content:
         return {"status": "pass", "detail": "存在位置重计算逻辑"}
-    if 'getBoundingClientRect' in content:
+    if spy['has_rect']:
         # getBoundingClientRect is called on each scroll, so it auto-recalculates
         return {"status": "pass", "detail": "使用getBoundingClientRect（实时计算）"}
     return {"status": "warning", "detail": "缺少折叠后位置重计算（GEM5 v0.04 bug模式）"}
@@ -620,11 +731,11 @@ def check_internal_link_broken(content, lines, file_path):
 
 @register("导航检查", "scroll-spy属性存在", ["nav"])
 def check_data_spy_presence(content, lines, file_path):
+    spy = detect_scrollspy(content)
+    if spy['mechanism'] and 'data-spy' not in content:
+        return {"status": "warning", "detail": "有 scroll-spy 机制但无 data-spy 属性（可选）"}
     if 'data-spy' in content:
-        count = content.count('data-spy')
-        return {"status": "pass", "detail": f"{count}处"}
-    if 'initScrollSpy' in content:
-        return {"status": "warning", "detail": "有scroll-spy JS但无data-spy属性"}
+        return {"status": "pass", "detail": f"{content.count('data-spy')}处"}
     return {"status": "pass", "detail": "无scroll-spy（不适用）"}
 
 @register("导航检查", "侧边栏链接数与标题数匹配", ["nav"])
@@ -655,7 +766,8 @@ def check_back_to_top_presence(content, lines, file_path):
 @register("导航检查", "侧边栏滚动高亮(自动居中)", ["nav", "js"])
 def check_sidebar_auto_scroll(content, lines, file_path):
     """Rule 2.3: Active item should auto-scroll to center of sidebar."""
-    if 'initScrollSpy' not in content:
+    spy = detect_scrollspy(content)
+    if not spy['mechanism']:
         return {"status": "pass", "detail": "无scroll-spy（不适用）"}
     if 'scrollTop' in content and ('sidebar' in content.lower() or 'nav' in content.lower()):
         return {"status": "pass", "detail": "自动滚动存在"}
@@ -921,7 +1033,11 @@ def check_table_ref_consistency(content, lines, file_path):
 
 @register("内容检查", "侧边栏与标题文本一致", ["content", "nav"])
 def check_sidebar_heading_text_match(content, lines, file_path):
-    """Check sidebar link text matches heading text."""
+    """Lenient check: sidebar link text should correspond to heading text.
+    Uses _norm_nav_text() to ignore fold arrows (▾/▶), numbering prefixes,
+    parentheticals and abbreviations, so design-level divergence
+    (e.g. nav '▾ 3.2 折叠' vs heading '折叠本层级内容') is a soft WARNING,
+    not a hard FAIL — reduces false positives (v0.09 report case)."""
     if 'sidebar' not in content.lower():
         return {"status": "pass", "detail": "无侧边栏（不适用）"}
     sidebar_match = re.search(r'<(?:div|nav)[^>]*(?:id="sidebar"|class="sidebar")[^>]*>(.*?)</(?:div|nav)>', content, re.DOTALL)
@@ -933,18 +1049,21 @@ def check_sidebar_heading_text_match(content, lines, file_path):
     mismatches = []
     for href, text in sidebar_links[:20]:
         clean_text = re.sub(r'<[^>]+>', '', text).strip()
-        # Find corresponding heading
         h_match = re.search(rf'<h[23][^>]*id="{href}"[^>]*>(.*?)</h', content, re.DOTALL)
         if h_match:
             h_text = re.sub(r'<[^>]+>', '', h_match.group(1)).strip()
-            # Compare without numbering prefix
-            link_text = re.sub(r'^[\d.]+\s*', '', clean_text)
-            head_text = re.sub(r'^[\d.]+\s*', '', h_text)
-            if link_text and head_text and link_text[:10] != head_text[:10]:
-                mismatches.append(f"#{href}: 导航'{clean_text[:15]}' vs 标题'{h_text[:15]}'")
+            lt = _norm_nav_text(clean_text)
+            ht = _norm_nav_text(h_text)
+            if not lt or not ht:
+                continue
+            # Lenient: pass if normalized equal, one contains the other,
+            # or first 6 significant chars match (handles abbreviation).
+            if lt == ht or lt in ht or ht in lt or lt[:6] == ht[:6]:
+                continue
+            mismatches.append(f"#{href}: 导航'{clean_text[:15]}' vs 标题'{h_text[:15]}'")
     if mismatches:
-        return {"status": "fail", "detail": f"{len(mismatches)}处不一致: {mismatches[:2]}"}
-    return {"status": "pass", "detail": "文本一致"}
+        return {"status": "warning", "detail": f"{len(mismatches)}处文本差异(柔和告警): {mismatches[:2]}"}
+    return {"status": "pass", "detail": "文本基本一致"}
 
 @register("内容检查", "特殊字符转义", ["content", "chars"])
 def check_special_chars(content, lines, file_path):

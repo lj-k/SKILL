@@ -28,7 +28,7 @@ python3 html_frontend_checker.py --file /path/to/file.html --output /path/to/rep
 | 类别 | 检查数 | 说明 |
 |------|--------|------|
 | 结构检查 | 18 | 标签配对、标题层级、DOM元素位置、stray标签、双层嵌套 |
-| CSS检查 | 14 | 模态窗口透明/无限制、侧边栏nowrap、overflow-x、margin-left、table-layout |
+| CSS检查 | 15 | 模态窗口透明/无限制、侧边栏nowrap、overflow-x、margin-left、table-layout、响应式级联顺序 |
 | JS检查 | 16 | scroll-spy完整性、折叠/查看器/提示JS、DOMContentLoaded、Mermaid异步、重复检测 |
 | 导航检查 | 10 | 侧边栏/ToC存在性、链接完整性、重复锚点、标题匹配 |
 | 框图检查 | 12 | 查看器按钮(缩放/拖拽/ESC/切换)、figure包裹、figcaption、Mermaid兼容性 |
@@ -74,3 +74,4 @@ html-frontend-checker/
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v0.01 | 2026-08-14 | 初始版本，80+ 检查项，基于 5 个项目 40+ 历史 bug |
+| v0.02 | 2026-08-16 | 新增响应式级联顺序检查；修复 3 类误报（oldId/scroll-spy硬编码/侧栏标题文本）+ 跨选择器级联误报 |
