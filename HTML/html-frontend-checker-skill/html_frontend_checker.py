@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HTML Frontend Checker v0.01
+HTML Frontend Checker v0.03
 Comprehensive HTML document checker based on historical bug analysis.
 Derived from 40+ bugs across 5 documentation projects (C910, GEM5, SOC, CHI, CMN-700).
 
@@ -274,6 +274,70 @@ def check_double_nested_code(content, lines, file_path):
     if matches:
         return {"status": "fail", "detail": f"发现{len(matches)}处双层code嵌套"}
     return {"status": "pass", "detail": "0处"}
+
+@register("结构检查", "callout不包裹子节标题", ["structure", "callout", "tag"])
+def check_callout_not_wrapping_headings(content, lines, file_path):
+    """Bug V1A v0.07/v0.09: 一个 <div class="callout"> 误将后续多个 h3/h4/h5 子节
+    标题（如 2.4.5~2.4.10）包裹在内。div 配对计数(140/140)无法发现此类嵌套错误，
+    必须用栈式解析求每个 callout 的 (开启行,关闭行) 区间，检查区间内是否含有
+    非该 callout 自身的同级/更低级标题。"""
+    body = strip_script_style(content)
+    body_lines = body.split('\n')
+    # 收集所有 callout 开/闭位置（按行号）
+    callout_open = []   # 行号 (0-based)
+    callout_close = []
+    for i, ln in enumerate(body_lines):
+        if re.search(r'<div\b[^>]*class\s*=\s*["\'][^"\']*callout[^"\']*["\']', ln):
+            callout_open.append(i)
+        if re.search(r'</div\s*>', ln):
+            callout_close.append(i)
+    # 栈式配对：按出现顺序配对（HTML 中 callout 一般不成环嵌套，按顺序配对即可）
+    pairs = []
+    opens = list(callout_open)
+    closes = list(callout_close)
+    while opens and closes:
+        o = opens.pop(0)
+        # 找第一个晚于 o 的 close
+        c = None
+        for j, cl in enumerate(closes):
+            if cl > o:
+                c = cl
+                closes.pop(j)
+                break
+        if c is not None:
+            pairs.append((o, c))
+    # 收集所有标题行
+    heading_re = re.compile(r'<(h[3-5])[\s>]')
+    headings = []  # (line, tag)
+    for i, ln in enumerate(body_lines):
+        m = heading_re.search(ln)
+        if m:
+            headings.append((i, m.group(1)))
+    issues = []
+    for (o, c) in pairs:
+        # 区间内（开闭之间，不含端点）存在的标题
+        inner = [(h_l, h_t) for (h_l, h_t) in headings if o < h_l < c]
+        if inner:
+            sample = "、".join(f"第{h_l+1}行<{h_t}>" for (h_l, h_t) in inner[:5])
+            issues.append(f"callout(第{o+1}~{c+1}行)内包裹了子节标题: {sample}")
+    if issues:
+        return {"status": "fail", "detail": "；".join(issues[:5])}
+    return {"status": "pass",
+            "detail": f"{len(pairs)}个callout，均未包裹子节标题(h3/h4/h5)"}
+
+@register("结构检查", "figure id 唯一性(fig-)", ["structure", "diagram", "tag"])
+def check_figure_id_unique(content, lines, file_path):
+    """Bug V1A v0.08: 两张图复用同一 id（fig-3），导致 getElementById 永远返回
+    第一个匹配元素，模态查看器显示错误图片。等价命令：
+    grep -oP 'id="fig-[^"]*"' FILE | sort | uniq -d  —— 必须空输出。"""
+    ids = re.findall(r'id="(fig-[^"]*)"', strip_script_style(content))
+    if not ids:
+        return {"status": "pass", "detail": "无 fig- 类 id（不适用）"}
+    from collections import Counter
+    dup = [k for k, v in Counter(ids).items() if v > 1]
+    if dup:
+        return {"status": "fail", "detail": f"重复 fig id: {', '.join(sorted(dup))}"}
+    return {"status": "pass", "detail": f"{len(ids)}个 fig- id 均唯一"}
 
 # ============================================================================
 # 2. CSS CHECKS (14 checks)
@@ -942,6 +1006,37 @@ def check_svg_container(content, lines, file_path):
         return {"status": "pass", "detail": "SVG容器存在"}
     return {"status": "warning", "detail": "缺少SVG容器（GEM5 v0.02/v0.03 bug模式）"}
 
+@register("框图检查", "openImageModal引用有效性", ["diagram", "nav", "tag"])
+def check_openimagemodal_refs(content, lines, file_path):
+    """Bug V1A v0.08: 模态查看器点击后显示错误图片，根因是重复 fig id 导致
+    getElementById 命中第一个元素。本检查提取所有 figure 的 id 集合与所有
+    openImageModal('X') 实参集合求差集：非空即为错误——要么是悬空引用（实参
+    指向不存在的 id），要么实参指向了重复 id 的第一个元素（与上方 fig id 唯一性
+    检查联动）。等价命令：{figure id 集合} - {openImageModal 实参集合} 非空报错。"""
+    body = strip_script_style(content)
+    fig_ids = re.findall(r'id="(fig-[^"]*)"', body)
+    # openImageModal('xxx') 或 openImageModal("xxx")
+    modal_args = re.findall(r'''openImageModal\s*\(\s*['"]([^'"]+)['"]\s*\)''', content)
+    if not fig_ids and not modal_args:
+        return {"status": "pass", "detail": "无框图/无模态引用（不适用）"}
+    fig_set = set(fig_ids)
+    arg_set = set(modal_args)
+    # 悬空引用：实参不在任何 figure id 中
+    dangling = sorted(arg_set - fig_set)
+    # 指向重复 id 第一个元素（重复 id 会让 getElementById 命中错误图）
+    from collections import Counter
+    dup_ids = {k for k, v in Counter(fig_ids).items() if v > 1}
+    dup_targeted = sorted(arg_set & dup_ids)
+    issues = []
+    if dangling:
+        issues.append(f"悬空引用(无对应figure id): {', '.join(dangling)}")
+    if dup_targeted:
+        issues.append(f"引用了重复 fig id 的首元素: {', '.join(dup_targeted)}")
+    if issues:
+        return {"status": "fail", "detail": "；".join(issues)}
+    return {"status": "pass",
+            "detail": f"figure id {len(fig_set)}个, openImageModal 引用 {len(arg_set)}个, 全部有效"}
+
 # ============================================================================
 # 6. CONTENT CHECKS (8 checks)
 # ============================================================================
@@ -1538,7 +1633,7 @@ function tf(el) {
 # ============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="HTML Frontend Checker v0.01")
+    parser = argparse.ArgumentParser(description="HTML Frontend Checker v0.03")
     parser.add_argument('--file', '-f', help='Check a single file')
     parser.add_argument('--dir', '-d', default='/workspace/NOTE', help='Directory to scan (default: /workspace/NOTE)')
     parser.add_argument('--tags', '-t', help='Filter by tags (comma-separated)')

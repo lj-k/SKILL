@@ -27,11 +27,11 @@ python3 html_frontend_checker.py --file /path/to/file.html --output /path/to/rep
 
 | 类别 | 检查数 | 说明 |
 |------|--------|------|
-| 结构检查 | 18 | 标签配对、标题层级、DOM元素位置、stray标签、双层嵌套 |
+| 结构检查 | 20 | 标签配对、标题层级、DOM元素位置、stray标签、双层嵌套、callout不包裹子节标题、figure id唯一性 |
 | CSS检查 | 15 | 模态窗口透明/无限制、侧边栏nowrap、overflow-x、margin-left、table-layout、响应式级联顺序 |
 | JS检查 | 16 | scroll-spy完整性、折叠/查看器/提示JS、DOMContentLoaded、Mermaid异步、重复检测 |
 | 导航检查 | 10 | 侧边栏/ToC存在性、链接完整性、重复锚点、标题匹配 |
-| 框图检查 | 12 | 查看器按钮(缩放/拖拽/ESC/切换)、figure包裹、figcaption、Mermaid兼容性 |
+| 框图检查 | 13 | 查看器按钮(缩放/拖拽/ESC/切换)、figure包裹、figcaption、Mermaid兼容性、openImageModal引用有效性 |
 | 内容检查 | 8 | 标题编号、表格caption、编号唯一性、代码折叠、引用一致性 |
 | 版本检查 | 6 | 版本一致性/格式/位置、文件名匹配、损坏检测、备份检测 |
 | 已知Bug模式 | 8 | JS块剥离、默认折叠、Mermaid标签、编号跳跃、版本混用、重复按钮 |
@@ -75,3 +75,4 @@ html-frontend-checker/
 |------|------|------|
 | v0.01 | 2026-08-14 | 初始版本，80+ 检查项，基于 5 个项目 40+ 历史 bug |
 | v0.02 | 2026-08-16 | 新增响应式级联顺序检查；修复 3 类误报（oldId/scroll-spy硬编码/侧栏标题文本）+ 跨选择器级联误报 |
+| v0.03 | 2026-08-20 | 新增检查：`callout不包裹子节标题`（栈式解析，防 div 配对盲区）、`figure id 唯一性(fig-)`、`openImageModal引用有效性`；源自 V1A v0.07~v0.10 系列修复经验 |

@@ -1,6 +1,6 @@
 ---
 name: "html-frontend-checker"
-description: "Comprehensive HTML frontend checker for technical documentation. Invoke when creating/modifying HTML docs, before delivery, or when diagnosing HTML bugs. Covers structure, CSS, JS, navigation, diagrams, content, and version integrity."
+description: "Comprehensive HTML frontend checker for technical documentation. Invoke when creating/modifying HTML docs, before delivery, or when diagnosing HTML bugs. Covers structure (incl. callout/heading nesting, figure id uniqueness), CSS, JS, navigation, diagrams, content, and version integrity."
 ---
 
 # HTML Frontend Checker
@@ -40,11 +40,11 @@ python3 html_frontend_checker.py --file path/to/file.html --output report.html
 
 | Category | Checks | Key Areas |
 |----------|--------|-----------|
-| structure | 18 | Tag pairing (div/html/body/script/style/code/pre/figure/details/article/section), heading hierarchy, DOM element position, stray tags |
+| structure | 20 | Tag pairing (div/html/body/script/style/code/pre/figure/details/article/section), heading hierarchy, DOM element position, stray tags, **callout 不包裹子节标题（栈式解析）**, **figure id 唯一性(fig-)** |
 | css | 15 | Modal transparency, no size constraints, sidebar nowrap, overflow-x hidden, margin-left, white background, table-layout fixed, responsive cascade order |
 | js | 16 | Function completeness (scroll-spy/collapse/diagram/sidebar/tooltip/back-to-top), DOMContentLoaded, async mermaid, duplicate detection, null-reference prevention |
 | navigation | 10 | Sidebar presence, ToC presence, link integrity, scroll-spy attributes, sidebar-heading count match, scroll-spy recalc after fold |
-| diagram | 12 | Viewer buttons (zoom/drag/pan/reset/ESC/prev-next), no duplicate buttons, figure.diagram wrapping, figcaption presence, SVG container |
+| diagram | 13 | Viewer buttons (zoom/drag/pan/reset/ESC/prev-next), no duplicate buttons, figure.diagram wrapping, figcaption presence, SVG container, **openImageModal 引用有效性** |
 | content | 8 | Code block default collapsed, heading numbering, table caption, figure numbering, cross-reference consistency, callout presence |
 | version | 6 | Version consistency (3 locations), version format (0.01+), filename-version match, corruption detection, backup file detection |
 | known_bugs | 8 | Mermaid label compatibility, double-nested code, hardcoded duplicate buttons, collapsed-by-default sections, version mixing |
@@ -53,6 +53,7 @@ python3 html_frontend_checker.py --file path/to/file.html --output report.html
 
 This checker encodes lessons from 40+ bugs across these projects:
 - C910 CIU/L2 Cache Design (v0.01-v0.22, 18 versions)
+- C910 Demand-Hit Prefetch-Line Design V1A/V1B (callout-nesting & duplicate-figure-id fixes)
 - GEM5 Architecture Simulation Manual (v0.01-v0.07)
 - SOC Integration Challenges (v0.01-v0.03)
 - CHI Design Implementation (v0.01-v0.09)
