@@ -15,7 +15,7 @@ description: "Comprehensive HTML frontend checker for technical documentation. I
 
 ## What It Does
 
-Runs 80+ automated checks across 8 categories, derived from 40+ historical bugs found across 5 documentation projects. Produces a self-contained HTML report with pass/fail/warning/error status per check.
+Runs 80+ automated checks across 8 categories, derived from 40+ historical bugs observed in HTML documentation. Project-agnostic: every check targets a generic bug pattern, so it applies to any HTML documentation regardless of topic. Produces a self-contained HTML report with pass/fail/warning/error status per check.
 
 ## Usage
 
@@ -51,15 +51,16 @@ python3 html_frontend_checker.py --file path/to/file.html --output report.html
 
 ## Historical Bug Prevention
 
-This checker encodes lessons from 40+ bugs across these projects:
-- C910 CIU/L2 Cache Design (v0.01-v0.22, 18 versions)
-- C910 Demand-Hit Prefetch-Line Design V1A/V1B (callout-nesting & duplicate-figure-id fixes)
-- GEM5 Architecture Simulation Manual (v0.01-v0.07)
-- SOC Integration Challenges (v0.01-v0.03)
-- CHI Design Implementation (v0.01-v0.09)
-- CMN-700 TRM (v0.01)
+This checker encodes lessons from 40+ recurring HTML documentation bugs, organized into generic patterns:
 
-See `known_bugs.md` for the complete catalog of historical bugs and their detection rules.
+- **Structure**: unbalanced tags, stray closers, double-nested code, callouts wrapping sub-headings, duplicate figure ids
+- **CSS**: modal overlay/constraints, sidebar wrap, responsive cascade order
+- **JS**: missing/stripped script blocks, scroll-spy drift after folding, Mermaid async timing
+- **Navigation**: missing sidebar/ToC, heading-text mismatch, stale scroll-spy offsets
+- **Diagrams**: SVG not shown in modal, zoom/drag failures, hardcoded duplicate buttons
+- **Content/Version**: numbering gaps, missing captions, version mixing, file corruption
+
+Every check targets a generic bug pattern, not a specific project. See `known_bugs.md` for the complete catalog of patterns and their detection rules.
 
 ## Report Format
 

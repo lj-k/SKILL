@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-HTML Frontend Checker v0.03
+HTML Frontend Checker v0.04
 Comprehensive HTML document checker based on historical bug analysis.
-Derived from 40+ bugs across 5 documentation projects (C910, GEM5, SOC, CHI, CMN-700).
+Derived from 40+ bugs observed across numerous HTML documentation projects.
+Project-agnostic: checks are based on generic bug patterns, not on any specific project.
 
 Usage:
     python3 html_frontend_checker.py --file path/to/file.html
@@ -239,7 +240,7 @@ def check_heading_hierarchy(content, lines, file_path):
 
 @register("结构检查", "DOM元素位置(script前)", ["structure", "js"])
 def check_dom_element_position(content, lines, file_path):
-    """Bug C910 v0.06: HTML elements after <script> cause getElementById() to return null."""
+    """HTML elements placed after <script> cause getElementById() to return null."""
     interactive_ids = ['back-to-top', 'link-tooltip', 'diagram-modal', 'diagram-modal-content',
                        'diagram-modal-body', 'sidebar', 'main']
     script_pos = find_script_position(content)
@@ -256,7 +257,7 @@ def check_dom_element_position(content, lines, file_path):
 
 @register("结构检查", "stray闭合标签检测", ["structure"])
 def check_stray_closing_tags(content, lines, file_path):
-    """Detect stray closing tags without matching opening tags (C910 v0.12 bug pattern)."""
+    """Detect stray closing tags without matching opening tags."""
     issues = []
     for tag in ['code', 'article', 'div', 'section', 'figure']:
         o, c = count_tag(content, tag)
@@ -268,7 +269,7 @@ def check_stray_closing_tags(content, lines, file_path):
 
 @register("结构检查", "双层code标签嵌套", ["structure"])
 def check_double_nested_code(content, lines, file_path):
-    """Bug C910 v0.09: double-nested <code> tags in table rows."""
+    """Double-nested <code> tags (e.g. inside table rows)."""
     pattern = r'<code[^>]*>\s*<code'
     matches = re.findall(pattern, content)
     if matches:
@@ -277,7 +278,7 @@ def check_double_nested_code(content, lines, file_path):
 
 @register("结构检查", "callout不包裹子节标题", ["structure", "callout", "tag"])
 def check_callout_not_wrapping_headings(content, lines, file_path):
-    """Bug V1A v0.07/v0.09: 一个 <div class="callout"> 误将后续多个 h3/h4/h5 子节
+    """一个 <div class="callout"> 误将后续多个 h3/h4/h5 子节
     标题（如 2.4.5~2.4.10）包裹在内。div 配对计数(140/140)无法发现此类嵌套错误，
     必须用栈式解析求每个 callout 的 (开启行,关闭行) 区间，检查区间内是否含有
     非该 callout 自身的同级/更低级标题。"""
@@ -327,7 +328,7 @@ def check_callout_not_wrapping_headings(content, lines, file_path):
 
 @register("结构检查", "figure id 唯一性(fig-)", ["structure", "diagram", "tag"])
 def check_figure_id_unique(content, lines, file_path):
-    """Bug V1A v0.08: 两张图复用同一 id（fig-3），导致 getElementById 永远返回
+    """两张图复用同一 id（如 fig-3），导致 getElementById 永远返回
     第一个匹配元素，模态查看器显示错误图片。等价命令：
     grep -oP 'id="fig-[^"]*"' FILE | sort | uniq -d  —— 必须空输出。"""
     ids = re.findall(r'id="(fig-[^"]*)"', strip_script_style(content))
@@ -483,7 +484,6 @@ def check_responsive_cascade_order(content, lines, file_path):
     query never takes effect (e.g. sidebar folds to bottom but leaves left
     whitespace, body content does not fill width).
     Best practice: base (desktop) styles FIRST, responsive overrides LAST.
-    Triggered by the real v0.09 regression in the ADS1263 driver report.
     Flagged as WARNING (not fail) since order only matters when values differ."""
     css = _extract_css(content)
     if not css or '@media' not in css:
@@ -559,7 +559,7 @@ def check_code_block_style(content, lines, file_path):
 @register("JS检查", "scroll-spy函数完整性", ["js", "nav"])
 def check_scrollspy_completeness(content, lines, file_path):
     """Generic scroll-spy completeness check (any naming convention).
-    Bug prevention: C910 v0.06 (offsetTop inaccurate), v0.12 (JS missing), v0.21 (JS stripped).
+    Bug prevention: offsetTop inaccurate, JS missing, JS stripped during rebuild.
     Downgraded to warnings (not fails) so non-initScrollSpy implementations are not false-flagged."""
     if 'sidebar' not in content.lower() and 'data-spy' not in content:
         return {"status": "pass", "detail": "无侧边栏（不适用）"}
@@ -568,7 +568,7 @@ def check_scrollspy_completeness(content, lines, file_path):
         return {"status": "warning", "detail": "未检测到 scroll-spy 机制（无 def / scroll监听+高亮 / rect定位）"}
     issues = []
     if spy['has_scroll_listener'] and not spy['has_rect']:
-        issues.append("scroll 监听但未用 getBoundingClientRect（v0.06 修复：offsetTop 不准）")
+        issues.append("scroll 监听但未用 getBoundingClientRect（offsetTop 定位不准）")
     if spy['has_scroll_listener'] and 'requestAnimationFrame' not in content:
         issues.append("未用 requestAnimationFrame 节流")
     if spy['mechanism'] and not spy['has_def']:
@@ -641,32 +641,32 @@ def check_dom_ready(content, lines, file_path):
 
 @register("JS检查", "Mermaid异步渲染处理", ["js", "diagram"])
 def check_mermaid_async(content, lines, file_path):
-    """Bug GEM5 v0.03: mermaid.run() is async, must await before setting up interactions."""
+    """mermaid.run() is async, must await before setting up interactions."""
     if 'mermaid' not in content.lower():
         return {"status": "pass", "detail": "无Mermaid（不适用）"}
     if 'await mermaid.run' in content or 'mermaid.run().then' in content or 'mermaid.initialize' in content:
         return {"status": "pass", "detail": "异步处理存在"}
     if 'mermaid.run' in content and 'await' not in content and '.then' not in content:
-        return {"status": "warning", "detail": "mermaid.run()未await（GEM5 v0.03 bug模式）"}
+        return {"status": "warning", "detail": "mermaid.run()未await（异步时序bug模式）"}
     return {"status": "pass", "detail": "Mermaid初始化方式正常"}
 
 @register("JS检查", "重复按钮检测", ["js", "diagram"])
 def check_duplicate_buttons(content, lines, file_path):
-    """Bug CHI v0.09: Hardcoded buttons duplicate JS-generated ones (3 buttons instead of 1)."""
+    """Hardcoded buttons duplicate JS-generated ones (e.g. 3 buttons instead of 1)."""
     if 'figure' not in content and 'diagram' not in content.lower():
         return {"status": "pass", "detail": "无框图（不适用）"}
     # Check for hardcoded svg-view-btn or view-btn in HTML that would duplicate JS-created ones
     hardcoded = len(re.findall(r'<div[^>]*class="[^"]*(?:svg-view-btn|view-btn|diagram-view-btn)[^"]*"[^>]*>[^<]*查看', content))
     js_created = len(re.findall(r'(?:createElement|innerHTML|insertAdjacentHTML).*?(?:view-btn|查看大图|查看按钮)', content, re.DOTALL))
     if hardcoded > 0 and js_created > 0:
-        return {"status": "fail", "detail": f"硬编码按钮{hardcoded}个 + JS动态创建{js_created}个（CHI v0.09 bug模式：重复按钮）"}
+        return {"status": "fail", "detail": f"硬编码按钮{hardcoded}个 + JS动态创建{js_created}个（重复按钮bug模式）"}
     if hardcoded > 10:
         return {"status": "warning", "detail": f"硬编码查看按钮{hardcoded}个，建议JS动态创建"}
     return {"status": "pass", "detail": "无重复按钮"}
 
 @register("JS检查", "scroll-spy重计算(折叠后)", ["js", "nav"])
 def check_scrollspy_recalc(content, lines, file_path):
-    """Bug GEM5 v0.04: After folding sections, heading positions change but scroll-spy uses stale offsets."""
+    """After folding sections, heading positions change but scroll-spy uses stale offsets."""
     spy = detect_scrollspy(content)
     if not spy['mechanism']:
         return {"status": "pass", "detail": "无scroll-spy（不适用）"}
@@ -675,7 +675,7 @@ def check_scrollspy_recalc(content, lines, file_path):
     if spy['has_rect']:
         # getBoundingClientRect is called on each scroll, so it auto-recalculates
         return {"status": "pass", "detail": "使用getBoundingClientRect（实时计算）"}
-    return {"status": "warning", "detail": "缺少折叠后位置重计算（GEM5 v0.04 bug模式）"}
+    return {"status": "warning", "detail": "缺少折叠后位置重计算（折叠后漂移bug模式）"}
 
 @register("JS检查", "DOM空引用防护", ["js"])
 def check_null_reference_protection(content, lines, file_path):
@@ -751,7 +751,7 @@ def check_sidebar_presence(content, lines, file_path):
 
 @register("导航检查", "内联目录ToC存在性", ["nav"])
 def check_toc_presence(content, lines, file_path):
-    """Rule 2.1: Must have both sidebar AND inline ToC. Bug GEM5 v0.05: missing ToC."""
+    """Rule 2.1: Must have both sidebar AND inline ToC (missing-ToC bug pattern)."""
     toc_patterns = [r'id="toc"', r'class="toc"', r'目录', r'Table of Contents', r'id="table-of-contents"']
     for p in toc_patterns:
         if re.search(p, content):
@@ -759,7 +759,7 @@ def check_toc_presence(content, lines, file_path):
     # Check for inline nav list in main content
     if re.search(r'<nav\s+class="[^"]*inline', content):
         return {"status": "pass", "detail": "内联nav存在"}
-    return {"status": "warning", "detail": "缺少内联目录ToC（规则2.1，GEM5 v0.05 bug模式）"}
+    return {"status": "warning", "detail": "缺少内联目录ToC（规则2.1）"}
 
 @register("导航检查", "侧边栏链接完整性", ["nav"])
 def check_sidebar_link_integrity(content, lines, file_path):
@@ -955,7 +955,7 @@ def check_click_outside_close(content, lines, file_path):
 
 @register("框图检查", "Mermaid标签兼容性", ["diagram", "known_bugs"])
 def check_mermaid_label_compat(content, lines, file_path):
-    """Bug C910 v0.04: Mermaid interprets 'N.' prefix as markdown list, causing 'Unsupported markdown: list' error."""
+    """Mermaid interprets 'N.' prefix as markdown list, causing 'Unsupported markdown: list' error."""
     if 'mermaid' not in content.lower():
         return {"status": "pass", "detail": "无Mermaid（不适用）"}
     # Check for mermaid node labels starting with number+dot (e.g., "1. SAB创建")
@@ -969,7 +969,7 @@ def check_mermaid_label_compat(content, lines, file_path):
         if labels:
             issues.append(f"标签以数字.开头: {labels[:2]}")
     if issues:
-        return {"status": "fail", "detail": "；".join(issues[:2]) + "（C910 v0.04 bug模式）"}
+        return {"status": "fail", "detail": "；".join(issues[:2]) + "（Mermaid标签歧义bug模式）"}
     return {"status": "pass", "detail": "无数字.开头标签"}
 
 @register("框图检查", "Mermaid初始化", ["diagram", "js"])
@@ -999,16 +999,16 @@ def check_low_saturation_bg(content, lines, file_path):
 
 @register("框图检查", "SVG容器存在性", ["diagram"])
 def check_svg_container(content, lines, file_path):
-    """Check for SVG container in modal (GEM5 v0.03: SVG display in modal)."""
+    """Check for SVG container in modal (SVG-not-shown bug pattern)."""
     if 'diagram-modal' not in content and 'modal' not in content.lower():
         return {"status": "pass", "detail": "无模态窗口（不适用）"}
     if 'svg' in content.lower() or 'svgContainer' in content or 'svg-container' in content or 'modal-svg' in content:
         return {"status": "pass", "detail": "SVG容器存在"}
-    return {"status": "warning", "detail": "缺少SVG容器（GEM5 v0.02/v0.03 bug模式）"}
+    return {"status": "warning", "detail": "缺少SVG容器（SVG不显示bug模式）"}
 
 @register("框图检查", "openImageModal引用有效性", ["diagram", "nav", "tag"])
 def check_openimagemodal_refs(content, lines, file_path):
-    """Bug V1A v0.08: 模态查看器点击后显示错误图片，根因是重复 fig id 导致
+    """模态查看器点击后显示错误图片，根因是重复 fig id 导致
     getElementById 命中第一个元素。本检查提取所有 figure 的 id 集合与所有
     openImageModal('X') 实参集合求差集：非空即为错误——要么是悬空引用（实参
     指向不存在的 id），要么实参指向了重复 id 的第一个元素（与上方 fig id 唯一性
@@ -1063,7 +1063,7 @@ def check_table_caption(content, lines, file_path):
         return {"status": "pass", "detail": "无表格"}
     if tables == captions:
         return {"status": "pass", "detail": f"{captions}/{tables}"}
-    return {"status": "warning", "detail": f"table {tables} vs caption {captions}（v0.21 bug模式）"}
+    return {"status": "warning", "detail": f"table {tables} vs caption {captions}（缺caption bug模式）"}
 
 @register("内容检查", "表格编号唯一性", ["content", "table"])
 def check_table_numbering(content, lines, file_path):
@@ -1078,7 +1078,7 @@ def check_table_numbering(content, lines, file_path):
     from collections import Counter
     dupes = [n for n, c in Counter(numbers).items() if c > 1]
     if dupes:
-        return {"status": "fail", "detail": f"重复表编号: {dupes}（C910 v0.13 bug模式）"}
+        return {"status": "fail", "detail": f"重复表编号: {dupes}"}
     return {"status": "pass", "detail": f"{len(numbers)}个编号唯一"}
 
 @register("内容检查", "代码块默认折叠", ["content"])
@@ -1132,7 +1132,7 @@ def check_sidebar_heading_text_match(content, lines, file_path):
     Uses _norm_nav_text() to ignore fold arrows (▾/▶), numbering prefixes,
     parentheticals and abbreviations, so design-level divergence
     (e.g. nav '▾ 3.2 折叠' vs heading '折叠本层级内容') is a soft WARNING,
-    not a hard FAIL — reduces false positives (v0.09 report case)."""
+    not a hard FAIL — reduces false positives."""
     if 'sidebar' not in content.lower():
         return {"status": "pass", "detail": "无侧边栏（不适用）"}
     sidebar_match = re.search(r'<(?:div|nav)[^>]*(?:id="sidebar"|class="sidebar")[^>]*>(.*?)</(?:div|nav)>', content, re.DOTALL)
@@ -1192,7 +1192,7 @@ def check_version_consistency(content, lines, file_path):
         return {"status": "pass", "detail": f"统一为{list(counts.keys())[0]}（{counts[list(counts.keys())[0]]}处）"}
     multi = {v: c for v, c in counts.items() if c > 1}
     if multi:
-        return {"status": "fail", "detail": f"多版本高频: {dict(multi)}（C910 v0.05/v0.21 bug模式）"}
+        return {"status": "fail", "detail": f"多版本高频: {dict(multi)}"}
     return {"status": "warning", "detail": f"主版本{list(counts.keys())[0]}，残留: {list(counts.keys())[1:]}"}
 
 @register("版本检查", "版本号格式", ["version"])
@@ -1244,7 +1244,7 @@ def check_version_locations(content, lines, file_path):
 @register("版本检查", "文件损坏检测", ["version"])
 def check_file_corruption(content, lines, file_path):
     """Detect file corruption: version mixing, missing content, truncation.
-    Bug C910 v0.21: version mixing v0.15/v0.20/v0.22, missing chapters."""
+    e.g. version mixing v0.15/v0.20/v0.22 in one file, or missing chapters."""
     # Only consider v0.xx format as document versions
     versions = re.findall(r'(?<![a-zA-Z])(v0\.\d+)', content)
     doc_versions = [v for v in versions]
@@ -1252,7 +1252,7 @@ def check_file_corruption(content, lines, file_path):
     counts = Counter(doc_versions)
     multi = {v: c for v, c in counts.items() if c > 1}
     if len(multi) >= 2:
-        return {"status": "fail", "detail": f"版本混用: {dict(multi)}（v0.21损坏模式）"}
+        return {"status": "fail", "detail": f"版本混用: {dict(multi)}（文件损坏迹象）"}
     # Check for truncation (file ends without </html>)
     if not content.rstrip().endswith('</html>') and not content.rstrip().endswith('</body>'):
         return {"status": "fail", "detail": "文件可能被截断（无</html>结尾）"}
@@ -1271,7 +1271,7 @@ def check_backup_files(content, lines, file_path):
     if backups:
         corrupt = [b for b in backups if 'corrupt' in b]
         if corrupt:
-            return {"status": "fail", "detail": f"发现损坏备份: {corrupt}（v0.21事故痕迹）"}
+            return {"status": "fail", "detail": f"发现损坏备份: {corrupt}"}
         return {"status": "warning", "detail": f"发现备份文件: {backups[:3]}"}
     return {"status": "pass", "detail": "无备份文件"}
 
@@ -1281,7 +1281,7 @@ def check_backup_files(content, lines, file_path):
 
 @register("已知Bug模式", "JS块完整性(script数量)", ["known_bugs"])
 def check_js_block_completeness(content, lines, file_path):
-    """Bug C910 v0.12/v0.21: Entire JS block stripped during rebuild.
+    """Entire JS block stripped during rebuild.
     Check: script count >= 2 (external lib + inline JS) for interactive docs."""
     scripts = len(re.findall(r'<script\b', content))
     if scripts == 0:
@@ -1293,12 +1293,12 @@ def check_js_block_completeness(content, lines, file_path):
         script_content = re.findall(r'<script[^>]*>(.*?)</script>', content, re.DOTALL)
         has_inline = any(s.strip() for s in script_content)
         if not has_inline and ('sidebar' in content.lower() or 'initScrollSpy' in content):
-            return {"status": "fail", "detail": "仅1个外部script，内联JS缺失（v0.12/v0.21 bug模式）"}
+            return {"status": "fail", "detail": "仅1个外部script，内联JS缺失（JS被剥离bug模式）"}
     return {"status": "pass", "detail": f"{scripts}个script标签"}
 
 @register("已知Bug模式", "章节默认展开检测", ["known_bugs"])
 def check_no_default_collapsed(content, lines, file_path):
-    """Bug C910 v0.12: Chapter incorrectly collapsed by default (class="collapsed" + max-height:0)."""
+    """Chapter incorrectly collapsed by default (class="collapsed" + max-height:0)."""
     issues = []
     # Check for collapsed class on headings
     collapsed_h2 = len(re.findall(r'<h2[^>]*class="[^"]*collapsed', content))
@@ -1309,13 +1309,13 @@ def check_no_default_collapsed(content, lines, file_path):
     if max_height_zero:
         issues.append(f"{max_height_zero}处max-height:0px")
     if issues:
-        return {"status": "warning", "detail": "；".join(issues) + "（v0.12 bug模式）"}
+        return {"status": "warning", "detail": "；".join(issues) + "（默认折叠bug模式）"}
     return {"status": "pass", "detail": "无默认折叠章节"}
 
 @register("已知Bug模式", "Mermaid渲染兼容性", ["known_bugs", "diagram"])
 def check_mermaid_render_compat(content, lines, file_path):
-    """Bug C910 v0.04: Mermaid 'Unsupported markdown: list' error.
-    Bug GEM5 v0.03: Mermaid async timing issue."""
+    """Mermaid 'Unsupported markdown: list' error (N. label ambiguity).
+    Mermaid async timing issue (run() not awaited)."""
     if 'mermaid' not in content.lower():
         return {"status": "pass", "detail": "无Mermaid（不适用）"}
     issues = []
@@ -1326,12 +1326,12 @@ def check_mermaid_render_compat(content, lines, file_path):
         if labels:
             issues.append(f"数字.开头标签: {labels[:2]}")
     if issues:
-        return {"status": "fail", "detail": "；".join(issues[:2]) + "（v0.04 bug模式）"}
+        return {"status": "fail", "detail": "；".join(issues[:2]) + "（Mermaid渲染兼容问题）"}
     return {"status": "pass", "detail": "无兼容性问题"}
 
 @register("已知Bug模式", "表编号跳跃检测", ["known_bugs", "content"])
 def check_table_numbering_gaps(content, lines, file_path):
-    """Bug C910 v0.13: Table numbering jumps (表30-32 instead of 表2-1~2-3)."""
+    """Table numbering jumps (e.g. 表30-32 instead of 表2-1~2-3)."""
     caps = re.findall(r'<caption[^>]*>(.*?)</caption>', content, re.DOTALL)
     numbers = []
     for cap in caps:
@@ -1344,12 +1344,12 @@ def check_table_numbering_gaps(content, lines, file_path):
     numbers.sort()
     for i in range(1, len(numbers)):
         if numbers[i] - numbers[i-1] > 10:
-            return {"status": "warning", "detail": f"表编号跳跃: {numbers[i-1]}→{numbers[i]}（v0.13 bug模式）"}
+            return {"status": "warning", "detail": f"表编号跳跃: {numbers[i-1]}→{numbers[i]}"}
     return {"status": "pass", "detail": "编号连续"}
 
 @register("已知Bug模式", "图编号跳跃检测", ["known_bugs", "content"])
 def check_figure_numbering_gaps(content, lines, file_path):
-    """Bug C910 v0.13: Figure numbering jumps."""
+    """Figure numbering jumps."""
     caps = re.findall(r'<figcaption[^>]*>(.*?)</figcaption>', content, re.DOTALL)
     numbers = []
     for cap in caps:
@@ -1366,17 +1366,17 @@ def check_figure_numbering_gaps(content, lines, file_path):
 
 @register("已知Bug模式", "游离div序列检测", ["known_bugs", "structure"])
 def check_stray_div_sequence(content, lines, file_path):
-    """Bug C910 v0.21: Stray div sequence at chapter boundaries."""
+    """Stray div sequence at chapter boundaries."""
     # Look for patterns like </p><div><div></div> (orphan div sequences)
     pattern = r'</p>\s*<div>\s*<div>\s*</div>\s*</div>'
     matches = re.findall(pattern, content)
     if matches:
-        return {"status": "warning", "detail": f"发现{len(matches)}处游离div序列（v0.21 bug模式）"}
+        return {"status": "warning", "detail": f"发现{len(matches)}处游离div序列"}
     return {"status": "pass", "detail": "无游离div序列"}
 
 @register("已知Bug模式", "版本号混用检测", ["known_bugs", "version"])
 def check_version_mixing(content, lines, file_path):
-    """Bug C910 v0.21: Version mixing (v0.15/v0.20/v0.22 in same file)."""
+    """Version mixing (v0.15/v0.20/v0.22 in same file)."""
     # Look specifically in version-marking contexts, only v0.xx format
     version_contexts = re.findall(r'(?:HTML版本|版本[:\s]*|version[:\s]*)(v?0\.\d+)', content, re.IGNORECASE)
     doc_versions = [v if v.startswith('v') else 'v' + v for v in version_contexts]
@@ -1385,18 +1385,18 @@ def check_version_mixing(content, lines, file_path):
     from collections import Counter
     counts = Counter(doc_versions)
     if len(counts) > 1:
-        return {"status": "fail", "detail": f"版本混用: {dict(counts)}（v0.21 bug模式）"}
+        return {"status": "fail", "detail": f"版本混用: {dict(counts)}"}
     return {"status": "pass", "detail": f"统一为{list(counts.keys())[0]}"}
 
 @register("已知Bug模式", "硬编码重复按钮检测", ["known_bugs", "diagram"])
 def check_hardcoded_duplicate_buttons(content, lines, file_path):
-    """Bug CHI v0.09: 56 hardcoded view buttons duplicating JS-generated ones."""
+    """Hardcoded view buttons duplicating JS-generated ones."""
     hardcoded = re.findall(r'<div[^>]*class="[^"]*(?:svg-view-btn|view-btn|diagram-view-btn)[^"]*"[^>]*>', content)
     if len(hardcoded) > 5:
         # Check if JS also creates buttons
         js_creates = bool(re.search(r'(?:createElement|innerHTML|insertAdjacentHTML|appendChild).*?(?:view-btn|查看)', content, re.DOTALL))
         if js_creates:
-            return {"status": "fail", "detail": f"硬编码{len(hardcoded)}个按钮+JS动态创建（CHI v0.09 bug模式）"}
+            return {"status": "fail", "detail": f"硬编码{len(hardcoded)}个按钮+JS动态创建（重复按钮bug模式）"}
         return {"status": "warning", "detail": f"硬编码{len(hardcoded)}个查看按钮，建议改用JS动态创建"}
     return {"status": "pass", "detail": f"{len(hardcoded)}个硬编码按钮"}
 
@@ -1633,7 +1633,7 @@ function tf(el) {
 # ============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="HTML Frontend Checker v0.03")
+    parser = argparse.ArgumentParser(description="HTML Frontend Checker v0.04")
     parser.add_argument('--file', '-f', help='Check a single file')
     parser.add_argument('--dir', '-d', default='/workspace/NOTE', help='Directory to scan (default: /workspace/NOTE)')
     parser.add_argument('--tags', '-t', help='Filter by tags (comma-separated)')
