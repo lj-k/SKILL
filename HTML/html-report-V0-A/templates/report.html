@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<!-- HTML版本: 由 _shared/js/config.js 的 REPORT_VERSION 统一驱动（正文仅此一处版本变量） -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通用技术报告模板（html-report-V0-A）</title>
+<!-- 顺序：先 modal.css（源自 modal-image-viewer-skill），后 report.css（含约束覆盖） -->
+<link rel="stylesheet" href="./_shared/css/modal.css">
+<link rel="stylesheet" href="./_shared/css/report.css">
+<!-- Mermaid 运行时（如需离线，可改为本地 mermaid.min.js 路径） -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+
+<!-- 侧边栏开关 -->
+<button id="sidebar-toggle" title="折叠/展开目录">☰</button>
+
+<!-- 侧边目录（动态生成，见 toc.js；模态查看器来自 skill「modal-image-viewer-skill」） -->
+<aside id="sidebar">
+  <div class="sidebar-header"><span>目录</span></div>
+  <div class="toc-controls">
+    <div class="toc-ctrl">
+      <button type="button" class="toc-btn" id="toc-fixed-btn">固定级别: H2</button>
+      <div class="toc-menu" id="toc-fixed-menu"></div>
+    </div>
+    <div class="toc-ctrl">
+      <button type="button" class="toc-btn" id="toc-scroll-btn">滚动级别: H2</button>
+      <div class="toc-menu" id="toc-scroll-menu"></div>
+    </div>
+  </div>
+  <nav id="toc-list" class="toc-root"></nav>
+  <div id="version-sidebar"></div>
+</aside>
+
+<!-- 正文 -->
+<div class="layout">
+  <main id="main">
+
+    <!-- 文档头：标题用 div（非 H1），不进入目录编号（规则 3.2 说明） -->
+    <div class="doc-header">
+      <div class="doc-title" id="doc-title">通用技术报告模板</div>
+      <div class="doc-meta"><span id="version-meta"></span>基于 html-report-V0-A skill 生成；正文底色白/无色，系统默认字体。</div>
+    </div>
+
+    <!-- 第 1 章（编号由 toc.js 自动注入，标题不手写"第一章/1."，约束 3.16 二选一） -->
+    <div class="section" id="ch1" data-spy="">
+      <h1>概述与方法</h1>
+      <div class="section-content">
+        <p>本文件是 <strong>html-report-V0-A</strong> skill 生成的报告模板。删除示例内容、替换为你的正文即可。所有交互（目录、折叠、图片查看、引用预览）由 <code>_shared/js/*.js</code> 自动提供，无需手工编写。</p>
+
+        <div class="section" id="sec1-1" data-spy="">
+          <h2>设计目标与范围</h2>
+          <div class="section-content">
+            <p>正文要点：使用白色/无色底色（3.3）、系统默认字体（3.5）、正文宽度随视口变化不设上限（3.7）。</p>
+            <div class="callout note"><p><strong>说明</strong>：标题由 JS 自动编号（3.2），无需手工写"1.1"；交叉引用用 <code>§1.1</code> 或文档内锚点链接（见 <a href="#sec1-2">第二节</a>）。</p></div>
+          </div>
+        </div>
+
+        <div class="section" id="sec1-2" data-spy="">
+          <h2>关键约束</h2>
+          <div class="section-content">
+            <table>
+              <caption>表1-1：约束速查</caption>
+              <thead><tr><th style="width:18%">类别</th><th>要点</th></tr></thead>
+              <tbody>
+                <tr><td>绘图</td><td>含文字图形低饱和底色（0.1）；直角连线（0.4）；figure id 全局唯一带章节前缀（0.5）。</td></tr>
+                <tr><td>模态查看</td><td>调用 skill「modal-image-viewer-skill」；透明背景（1.2）；白底图形区（1.4）；+/-/拖拽/滚轮缩放（1.6）；‹/›切换（1.8）。</td></tr>
+                <tr><td>目录</td><td>侧边栏 + 移动端双目录（2.1）；滚动高亮居中（2.3）；收纳所有级别（2.8）。</td></tr>
+              </tbody>
+            </table>
+            <div class="section" id="sec1-2-1" data-spy="">
+              <h3>示例代码（默认折叠，3.1）</h3>
+              <div class="section-content">
+<pre data-title="示例代码：唯一版本号来源（config.js）"><code>// 示例：唯一版本号来源（config.js）
+window.REPORT_VERSION = "v0.01";
+// 正文中仅此一处版本变量，侧边栏/meta 由注入脚本读取填充</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" id="sec1-3" data-spy="">
+          <h2>预置样式速览</h2>
+          <div class="section-content">
+            <p>本章演示本 skill 已规定的正文 class 用法（详见 <code>rules/constraints.md</code> 与 <code>rules/style-spec.md</code>）。</p>
+            <h3>关键词高亮 <code>mark.key</code></h3>
+            <div class="section-content">
+              <p>用 <code>&lt;mark class="key"&gt;</code> 标记正文重点词，如：本方案以 <mark class="key">demand 命中预取行</mark> 为核心统计口径，<mark class="key">低面积开销</mark> 为实现约束。</p>
+            </div>
+            <h3>提示块五态</h3>
+            <div class="section-content">
+              <div class="callout"><p><strong>默认</strong>：普通补充说明。</p></div>
+              <div class="callout note"><p><strong>说明（note）</strong>：定义、背景、上下文、引用来源。如：§2 给出本方案的体系结构背景。</p></div>
+              <div class="callout tip"><p><strong>提示（tip）</strong>：技巧、推荐做法、最佳实践。如：建议先阅读 §1 再进入方案比较。</p></div>
+              <div class="callout warning"><p><strong>注意（warning）</strong>：潜在风险、局限、易错点。如：面积估算未含 DFX 开销。</p></div>
+              <div class="callout danger"><p><strong>禁止（danger）</strong>：错误、禁止项、严重风险。如：<mark class="key">不得</mark>在正文内指出上一版本错误（3.11）。</p></div>
+            </div>
+            <h3>标题竖条分级（3.18）</h3>
+            <div class="section-content">
+              <p>一级标题为蓝色粗竖条（h1）；二级标题为<b>浅蓝</b>竖条（h2）；三级为灰色细竖条（h3）；四级为最细灰条（h4）。本页各级标题即为示例。</p>
+            </div>
+            <h3>目录分级字号递减</h3>
+            <div class="section-content">
+              <p>侧边目录从 H4 起字号递减（11.5px / 10.5px）并弱化颜色，便于长文档辨识层级（见 <code>report.css</code> <code>.toc-item[data-level]</code> 规则）。</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第 2 章：含图形（figure 结构来自 modal-image-viewer-skill） -->
+    <div class="section" id="ch2" data-spy="">
+      <h1>方案与示意图</h1>
+      <div class="section-content">
+        <p>下图演示 Mermaid 流程图：原生直角连线（0.4）、低饱和节点底色（0.1），并带"查看"按钮进入模态查看器（点击查看调用 modal-image-viewer-skill 的 openImageModal）。</p>
+
+        <div class="section" id="sec2-1" data-spy="">
+          <h2>架构示意</h2>
+          <div class="section-content">
+            <!-- figure 结构遵循 modal-image-viewer-skill 的 figure.html（class=diagram / fig-bar / zoom-btn / openImageModal） -->
+            <figure class="diagram" id="fig-2-1">
+              <div class="fig-bar">
+                <figcaption>图2-1：请求通路与作用点示意</figcaption>
+                <button class="zoom-btn" onclick="openImageModal('fig-2-1')">查看</button>
+              </div>
+              <div class="mermaid-wrap">
+<pre class="mermaid">
+flowchart LR
+    A["请求源"] --> B["中间层"]
+    B --> C["目标阵列"]
+    D["方案X: 标记&lt;br/&gt;低饱和底色"] -.-> C
+    classDef plan fill:#fef9c3,stroke:#6b7280,stroke-width:2px;
+    class D plan
+</pre>
+              </div>
+            </figure>
+            <div class="callout warning"><p><strong>复核说明</strong>：绘制框图后应复查连线/箭头方向是否与意图一致（0.2），箭头端点须落在可见框体边沿（0.3）。</p></div>
+          </div>
+        </div>
+
+        <div class="section" id="sec2-2" data-spy="">
+          <h2>选定结论</h2>
+          <div class="section-content">
+            <p>结论须由清晰推理或参考代码/文档得出（3.14）。本模板仅作占位，请替换为真实结论，并以<strong>特别说明</strong>形式强调复核中发现的正确点（3.11/3.13）。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第 3 章：多级标题示例（长目录/滚动高亮测试） -->
+    <div class="section" id="ch3" data-spy="">
+      <h1>详细设计示例</h1>
+      <div class="section-content">
+        <p>本章及第四章用于演示长目录场景：多级标题、滚动高亮、折叠与代码块标题。可整体删除后替换为真实正文。</p>
+
+        <div class="section" id="sec3-1" data-spy="">
+          <h2>模块划分</h2>
+          <div class="section-content">
+            <p>占位正文：模块划分说明。</p>
+            <div class="section" id="sec3-1-1" data-spy="">
+              <h3>子模块 A</h3>
+              <div class="section-content"><p>占位正文：子模块 A 职责。</p></div>
+            </div>
+            <div class="section" id="sec3-1-2" data-spy="">
+              <h3>子模块 B</h3>
+              <div class="section-content"><p>占位正文：子模块 B 职责。</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" id="sec3-2" data-spy="">
+          <h2>接口定义</h2>
+          <div class="section-content">
+            <p>占位正文：接口列表。</p>
+            <div class="section" id="sec3-2-1" data-spy="">
+              <h3>输入接口</h3>
+              <div class="section-content"><p>占位正文：输入信号表。</p></div>
+            </div>
+            <div class="section" id="sec3-2-2" data-spy="">
+              <h3>输出接口</h3>
+              <div class="section-content"><p>占位正文：输出信号表。</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第 4 章：更多标题（长目录测试） -->
+    <div class="section" id="ch4" data-spy="">
+      <h1>验证与结论</h1>
+      <div class="section-content">
+        <div class="section" id="sec4-1" data-spy="">
+          <h2>验证方法</h2>
+          <div class="section-content"><p>占位正文：仿真/形式化验证方法。</p></div>
+        </div>
+        <div class="section" id="sec4-2" data-spy="">
+          <h2>结果分析</h2>
+          <div class="section-content">
+            <p>占位正文：结果概述。</p>
+            <div class="section" id="sec4-2-1" data-spy="">
+              <h3>性能指标</h3>
+              <div class="section-content"><p>占位正文：延迟/吞吐指标。</p></div>
+            </div>
+            <div class="section" id="sec4-2-2" data-spy="">
+              <h3>面积开销</h3>
+              <div class="section-content"><p>占位正文：面积估算。</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="section" id="sec4-3" data-spy="">
+          <h2>总结</h2>
+          <div class="section-content"><p>占位正文：结论与后续工作。</p></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- 右下角按钮组（fab-stack：级别按钮 + 目录 FAB + 回到顶部；窄屏仅显示目录 FAB，点击展开底部面板） -->
+<div class="fab-stack">
+  <div id="mobile-level-btns">
+    <button type="button" class="mobile-level-btn" data-which="fixed" id="mobile-fixed-btn" title="固定级别">H2</button>
+    <button type="button" class="mobile-level-btn" data-which="scroll" id="mobile-scroll-btn" title="滚动级别">H2</button>
+  </div>
+  <button id="mobile-toc-fab" title="目录">☰</button>
+  <button id="back-to-top" title="回到顶部" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+</div>
+<!-- 移动端目录面板：固定视口底，默认隐藏，由 toc.js 权威控制（FAB 点击展开，见 2.7） -->
+<div id="mobile-toc-panel">
+  <div class="mobile-toc-body"><nav id="mobile-toc-list" class="toc-root"></nav></div>
+</div>
+
+<!-- 模态图片查看器（源自 modal-image-viewer-skill：id=imgModal / imgStage / modalTitle / navPrev / navNext） -->
+<div class="img-modal" id="imgModal">
+  <div class="img-modal-content" onclick="if(event.target===this||event.target.classList.contains('img-modal-body'))closeImageModal()">
+    <div class="img-modal-toolbar">
+      <button class="img-nav-btn" id="navPrev" onclick="navImage(-1)" title="上一张">‹</button>
+      <span class="img-modal-title" id="modalTitle">图片预览</span>
+      <button class="img-nav-btn" id="navNext" onclick="navImage(1)" title="下一张">›</button>
+      <span class="toolbar-separator"></span>
+      <button onclick="zoomImage(0.2)" title="放大">+</button>
+      <button onclick="zoomImage(-0.2)" title="缩小">−</button>
+      <button onclick="resetZoom()" title="重置缩放">重置</button>
+      <span class="toolbar-separator"></span>
+      <button class="img-modal-close" onclick="closeImageModal()" title="关闭 (Esc)">✕</button>
+    </div>
+    <div class="img-modal-body">
+      <div class="img-stage" id="imgStage" style="transform: translate(0px, 0px) scale(1);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 脚本：顺序为 config -> 交互。modal.js 来自 modal-image-viewer-skill；
+     diagrams.js 仅负责页面侧 Mermaid 渲染（在 modal 克隆 SVG 前完成）。 -->
+<script src="./_shared/js/config.js"></script>
+<script src="./_shared/js/toc.js"></script>
+<script src="./_shared/js/collapse.js"></script>
+<script src="./_shared/js/modal.js"></script>
+<script src="./_shared/js/diagrams.js"></script>
+<!-- 末尾注入：版本号从 config.js 单一来源读取（满足"正文中仅一处版本变量"） -->
+<script>
+  (function () {
+    var v = window.REPORT_VERSION || 'v0.01';
+    var s = document.getElementById('version-sidebar');
+    var m = document.getElementById('version-meta');
+    if (s) s.textContent = 'HTML版本: ' + v;
+    if (m) m.textContent = '版本 ' + v + ' ｜ ';
+  })();
+</script>
+
+</body>
+</html>

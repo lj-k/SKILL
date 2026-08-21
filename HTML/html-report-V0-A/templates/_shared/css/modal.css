@@ -1,0 +1,53 @@
+/* ============ 模态图片查看器 CSS ============
+ * 源自 skill「modal-image-viewer-skill」（按名字调用，AI 自行定位其权威实现）。
+ * html-report-V0-A 随附此适配副本；约束 1.2（遮罩透明）/1.4（白底图形区）的覆盖
+ * 见 report.css（report.css 在 modal.css 之后加载，覆盖生效）。
+ */
+.img-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.55);  /* 被 report.css 按 1.2 覆盖为 transparent */
+}
+.img-modal.open { display: block; }
+.img-modal-content { width: 100vw; height: 100vh; position: relative; }
+.img-modal-body { width: 100%; height: 100%; display: flex; overflow: auto; }
+.img-stage {
+  margin: auto;
+  background: #ffffff;          /* 1.4 白底图形区 */
+  padding: 20px; border-radius: 4px;
+  cursor: grab; transform-origin: center center;
+  transition: transform 0.15s ease;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.img-stage.dragging { cursor: grabbing; }
+.img-stage svg, .img-stage img { max-width: 90vw; max-height: 85vh; display: block; }
+.img-modal-toolbar {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.9); padding: 6px 10px; border-radius: 24px;
+  backdrop-filter: blur(4px); border: 1px solid #e5e7eb; z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15); max-width: 92vw;
+}
+.img-modal-toolbar .img-modal-title {
+  font-size: 13px; color: #1f2937; font-weight: 600; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 420px; padding: 0 6px;
+}
+.img-modal-toolbar button {
+  cursor: pointer; border: 1px solid #e5e7eb; background: #fff; color: #1f2937;
+  border-radius: 6px; padding: 4px 8px; font-size: 14px; min-width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.img-modal-toolbar button:hover:not(:disabled) { background: #3b6cb7; color: #fff; border-color: #3b6cb7; }
+.img-modal-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.img-modal-toolbar .img-modal-close { border-radius: 50%; width: 30px; height: 30px; padding: 0; font-size: 15px; }
+.img-modal-toolbar .img-modal-close:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+.img-modal-toolbar .img-nav-btn { border-radius: 50%; width: 30px; height: 30px; padding: 0; font-size: 18px; }
+.img-modal-toolbar .toolbar-separator { width: 1px; height: 20px; background: #e5e7eb; margin: 0 4px; flex-shrink: 0; }
+figure.chart-figure { margin: 20px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #fff; }
+figure.diagram { margin: 20px 0; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.chart-canvas { width: 100%; height: 340px; padding: 12px; }
+.mermaid-wrap { padding: 20px; overflow: auto; background: #fff; }
+.mermaid-wrap svg { pointer-events: none; }
